@@ -56,7 +56,7 @@ this codebase.
 ## Requirements
 
 ```
-pip install pywin32 python-dotenv
+pip install -r requirements.txt
 ```
 
 Requires an already-open, logged-in SAP GUI session with GUI
@@ -65,8 +65,10 @@ Scripting enabled.
 ## Configuration
 
 Copy `.env.example` to `.env` and fill in your own values (input/
-output CSV paths, SAP company code, target movement type), then load
-them before running.
+output CSV paths, SAP company code, target movement type, the "no
+data" message(s) your SAP GUI shows in its logon language). The script
+loads `.env` automatically on startup via `python-dotenv` — no manual
+exporting needed.
 
 ## Input CSV layout
 

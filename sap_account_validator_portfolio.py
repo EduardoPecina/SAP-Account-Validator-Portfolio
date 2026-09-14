@@ -48,9 +48,15 @@ below. The default layout expected is:
   4 HasType1    | 5 HasOtherOnly1 | 6 Identifier2 | 7 IsActive2 |
   8 HasType2    | 9 HasOtherOnly2
 
+CONFIGURATION
+-------------
+All environment-specific values are read from environment variables.
+Copy `.env.example` to `.env` and fill in your own values -- it is
+loaded automatically on startup via `python-dotenv`.
+
 REQUIREMENTS
 ------------
-  pip install pywin32 python-dotenv --break-system-packages
+  pip install -r requirements.txt
 
 Requires an already-open, logged-in SAP GUI session with GUI
 Scripting enabled.
@@ -61,6 +67,9 @@ import os
 import time
 
 import win32com.client
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 # =============================================================================
@@ -72,6 +81,16 @@ INPUT_CSV = os.environ.get("INPUT_CSV", r"C:\temp\validator_input.csv")
 OUTPUT_CSV = os.environ.get("OUTPUT_CSV", r"C:\temp\validator_output.csv")
 COMPANY_CODE = os.environ.get("SAP_COMPANY_CODE", "XXXX")
 TARGET_MOVEMENT_TYPE = os.environ.get("TARGET_MOVEMENT_TYPE", "XX")
+
+# Phrase(s) SAP shows when the filtered list has no matching rows, in
+# your SAP GUI's logon language (e.g. "no data found" in English, "no
+# contiene datos" in Spanish). Separate multiple phrases with "|" if
+# your team runs SAP in more than one language.
+NO_DATA_MESSAGES = tuple(
+    phrase.strip().lower()
+    for phrase in os.environ.get("SAP_NO_DATA_MESSAGES", "no data found").split("|")
+    if phrase.strip()
+)
 
 # 0-indexed column positions in the input CSV -- adjust if your sheet
 # layout differs.
@@ -165,8 +184,8 @@ def check_identifier(session, identifier: str) -> dict:
         print(f"  (could not apply filter: {e})")
         return result
 
-    screen_text = read_screen_text(session)
-    has_target_type = "no data found" not in screen_text.lower() and "no contiene datos" not in screen_text.lower()
+    screen_text = read_screen_text(session).lower()
+    has_target_type = not any(message in screen_text for message in NO_DATA_MESSAGES)
 
     result["has_target_type"] = 1 if has_target_type else 0
     result["has_other_only"] = 0 if has_target_type else 1
@@ -179,6 +198,9 @@ def main():
 
     with open(INPUT_CSV, newline="", encoding="utf-8-sig") as f:
         rows = list(csv.reader(f))
+
+    if not rows:
+        raise RuntimeError(f"{INPUT_CSV} is empty -- expected at least a header row.")
 
     header, data_rows = rows[0], rows[1:]
     max_col_needed = max(COL_OTHER1, COL_OTHER2)
